@@ -1,0 +1,65 @@
+# code: language=ansible
+# vim: set filetype=yaml.ansible :
+---
+- name: "create root dir"
+  ansible.builtin.file:
+    path: "{{ victorialogs_docker_root_folder }}"
+    mode: "{{ victorialogs_docker_root_folder_mode }}"
+    owner: "{{ victorialogs_docker_root_folder_owner }}"
+    group: "{{ victorialogs_docker_root_folder_group }}"
+    state: directory
+
+- name: "render compose.yml"
+  ansible.builtin.copy:
+    content: "{{ victorialogs_docker_compose_template }}"
+    dest: "{{ victorialogs_docker_root_folder }}/compose.yml"
+    mode: '0644'
+    owner: "{{ victorialogs_docker_root_folder_owner }}"
+    group: "{{ victorialogs_docker_root_folder_group }}"
+  notify:
+    - "docker compose up"
+    - "docker compose restart victorialogs"
+
+- name: "render vmalert rules"
+  when:
+    - victorialogs_docker_vmalert_enabled
+  block:
+
+    - name: create rules dir
+      ansible.builtin.file:
+        path: "{{ victorialogs_docker_compose_vmalert_rules_path }}"
+        mode: "{{ victorialogs_docker_root_folder_mode }}"
+        state: directory
+
+    - name: "cleanup configs"
+      when:
+        - lookup('ansible.builtin.env', 'VICTORIALOGS_DOCKER_VMALERT_CLEANUP_CONFIGS', default='') != ''
+      block:
+
+        - name: "find configs"
+          ansible.builtin.find:
+            paths: "{{ victorialogs_docker_compose_vmalert_rules_path }}"
+            patterns: '*.yml'
+          register: victorialogs_docker_vmalert_configs_for_deletion
+
+        - name: "delete configs"
+          ansible.builtin.file:
+            path: "{{ vmalert_rules_name.path }}"
+            state: absent
+          loop: "{{ victorialogs_docker_vmalert_configs_for_deletion.files }}"
+          loop_control:
+            loop_var: vmalert_rules_name
+
+    - name: "render vmalert rules"
+      ansible.builtin.copy:
+        content: "{{ victorialogs_docker_compose_vmalert_rules[vmalert_rules_name] | replace('[[', '{{') | replace(']]', '}}') }}"
+        mode: '0644'
+        dest: "{{ victorialogs_docker_compose_vmalert_rules_path }}/{{ vmalert_rules_name }}.yml"
+      when:
+        - victorialogs_docker_compose_vmalert_rules is defined
+        - victorialogs_docker_compose_vmalert_rules is mapping
+        - victorialogs_docker_compose_vmalert_rules.keys() | list | length > 0
+      with_items: "{{ victorialogs_docker_compose_vmalert_rules.keys() }}"
+      loop_control:
+        loop_var: vmalert_rules_name
+      notify: "docker compose restart vmalert"
