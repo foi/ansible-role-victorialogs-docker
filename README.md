@@ -33,7 +33,7 @@ Role Variables
 --------------
 role defaults:
 ```yml
-victorialogs_docker_version: 'v1.48.0'
+victorialogs_docker_version: 'v1.49.0'
 victorialogs_docker_container_name: victorialogs
 victorialogs_docker_root_folder: "/opt/{{ victorialogs_docker_container_name }}"
 victorialogs_docker_root_folder_owner: root
@@ -56,7 +56,7 @@ victorialogs_docker_compose_commands:
   - "-retentionPeriod={{ victorialogs_docker_compose_retention }}"
 victorialogs_docker_vmalert_enabled: true
 victorialogs_docker_vmalert_container_name: vmalert
-victorialogs_docker_vmalert_version: "v1.138.0"
+victorialogs_docker_vmalert_version: "v1.139.0"
 victorialogs_docker_vmalert_image: victoriametrics/vmalert
 # vmalert rules {{  }} braces should be written as [[ ]] because {{  }} is reserved for jinja
 # templating
@@ -74,7 +74,8 @@ victorialogs_docker_compose_vmalert_notify_url: "http://changethaturl:9093"
 victorialogs_docker_compose_vmalert_datasource_url: "http://{{ victorialogs_docker_container_name }}:9428"
 victorialogs_docker_compose_vmalert_remote_read_url: "http://{{ victorialogs_docker_victoriametrics_container_name }}:8428"
 victorialogs_docker_compose_vmalert_remote_write_url: "http://{{ victorialogs_docker_victoriametrics_container_name }}:8428"
-victorialogs_docker_compose_vmalert_service_params: {}
+victorialogs_docker_compose_vmalert_service_params:
+  restart: unless-stopped
 victorialogs_docker_compose_vmalert_commands:
   - "--rule.defaultRuleType=vlogs"
   - "--datasource.url={{ victorialogs_docker_compose_vmalert_datasource_url }}"
@@ -83,7 +84,7 @@ victorialogs_docker_compose_vmalert_commands:
   - "--notifier.url={{ victorialogs_docker_compose_vmalert_notify_url }}"
   - "--rule='/etc/alerts/*.yml'"
 victorialogs_docker_victoriametrics_enabled: true
-victorialogs_docker_victoriametrics_version: "v1.138.0"
+victorialogs_docker_victoriametrics_version: "v1.139.0"
 victorialogs_docker_victoriametrics_image: victoriametrics/victoria-metrics
 victorialogs_docker_victoriametrics_container_name: victoriametrics
 victorialogs_docker_compose_victoriametrics_ports:
@@ -91,7 +92,8 @@ victorialogs_docker_compose_victoriametrics_ports:
 victorialogs_docker_compose_victoriametrics_volumes:
   - "victoriametrics-data:/victoria-metrics-data"
 victorialogs_docker_compose_victoriametrics_commands: {}
-victorialogs_docker_compose_victoriametrics_service_params: {}
+victorialogs_docker_compose_victoriametrics_service_params:
+  restart: unless-stopped
 victorialogs_docker_compose_victoriametrics_environment_params: {}
 victorialogs_docker_compose_template: |
   services:
