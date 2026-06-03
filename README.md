@@ -33,7 +33,7 @@ Role Variables
 --------------
 role defaults:
 ```yml
-victorialogs_docker_version: 'v1.49.0'
+victorialogs_docker_version: 'v1.50.0'
 victorialogs_docker_container_name: victorialogs
 victorialogs_docker_root_folder: "/opt/{{ victorialogs_docker_container_name }}"
 victorialogs_docker_root_folder_owner: root
