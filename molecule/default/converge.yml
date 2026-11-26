@@ -3,10 +3,13 @@
 ---
 - name: Converge
   hosts: all
+  vars_files:
+    - "{{ lookup('ansible.builtin.env', 'MOLECULE_SCENARIO_DIRECTORY') }}/vars/main.yml"
   tasks:
     - name: update apt cache
       ansible.builtin.apt:
         update_cache: true
+        cache_valid_time: 86400
 
     - name: install docker
       ansible.builtin.apt:
@@ -22,4 +25,4 @@
 
     - name: "include victorialogs_docker role"
       ansible.builtin.include_role:
-        name: "{{ lookup('env', 'GITHUB_WORKSPACE') }}"
+        name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"

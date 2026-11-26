@@ -22,3 +22,48 @@ jobs:
       - name: Lint code.
         run: |
           ansible-lint
+
+  molecule:
+    name: Molecule (Python ${{ matrix.python }}, Ansible ${{ matrix.ansible }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python: '3.12'
+            ansible: '14'
+          - python: '3.13'
+            ansible: '15'
+          - python: '3.14'
+            ansible: '15'
+          - python: '3.15'
+            ansible: '15'
+    env:
+      PY_COLORS: '1'
+      ANSIBLE_FORCE_COLOR: '1'
+      PYTHON_VERSION: ${{ matrix.python }}
+      ANSIBLE_VERSION: ${{ matrix.ansible }}
+      OS_VERSION: debian13
+    steps:
+      - name: Check out the codebase.
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install test dependencies.
+        run: |
+          # Replace the development Ansible pin with the compatible matrix version.
+          sed '/^ansible==/d' requirements.in > "$RUNNER_TEMP/molecule-requirements.txt"
+          python -m pip install -r "$RUNNER_TEMP/molecule-requirements.txt" "ansible==${{ matrix.ansible }}.*"
+
+      - name: Install rsync.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rsync
+
+      - name: Run Molecule tests.
+        run: molecule test

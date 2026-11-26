@@ -1,0 +1,75 @@
+# code: language=ansible
+# vim: set filetype=yaml.ansible :
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}/defaults/main.yml"
+    - "{{ lookup('ansible.builtin.env', 'MOLECULE_SCENARIO_DIRECTORY') }}/vars/main.yml"
+  tasks:
+    - name: "reject unauthenticated reload"
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8880/-/reload
+        method: POST
+        status_code: 401
+
+    - name: "reject incorrect reload key"
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8880/-/reload
+        method: POST
+        body_format: form-urlencoded
+        body:
+          authKey: incorrect-key
+        status_code: 401
+
+    - name: "read generated reload key"
+      ansible.builtin.slurp:
+        src: "{{ victorialogs_docker_vmalert_reload_auth_key_path }}"
+      register: reload_key_file
+      no_log: true
+
+    - name: "accept authenticated reload"
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8880/-/reload
+        method: POST
+        body_format: form-urlencoded
+        body:
+          authKey: "{{ reload_key_file.content | b64decode }}"
+        status_code: 200
+      no_log: true
+
+    - name: "check loaded alert rules"
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8880/api/v1/rules
+        return_content: true
+      register: loaded_rules
+      until: loaded_rules.json.data.groups | length == 1
+      retries: 5
+      delay: 1
+
+    - name: "ingest a test log"
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9428/insert/jsonline?_stream_fields=source
+        method: POST
+        headers:
+          Content-Type: application/stream+json
+        body: '{"_msg":"role smoke test","source":"molecule"}'
+
+    - name: "flush ingested logs"
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9428/internal/force_flush
+        method: POST
+
+    - name: "query ingested logs"
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:9428/select/logsql/query?query=source%3Amolecule&limit=1"
+        return_content: true
+      register: queried_logs
+      until: "'role smoke test' in queried_logs.content"
+      retries: 5
+      delay: 1
+
+    - name: "check VictoriaMetrics health"
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8428/health

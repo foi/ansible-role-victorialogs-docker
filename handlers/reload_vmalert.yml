@@ -1,0 +1,39 @@
+# code: language=ansible
+# vim: set filetype=yaml.ansible :
+---
+- name: "get vmalert container status"
+  community.docker.docker_container_info:
+    name: "{{ victorialogs_docker_vmalert_container_name }}"
+  register: victorialogs_docker_vmalert_container_info
+
+- name: "up vmalert"
+  community.docker.docker_compose_v2:
+    services:
+      - "{{ victorialogs_docker_vmalert_container_name }}"
+    state: present
+    project_src: "{{ victorialogs_docker_root_folder }}"
+  when: >-
+    not victorialogs_docker_vmalert_container_info.exists or
+    not victorialogs_docker_vmalert_container_info.container.State.Running
+
+- name: "read vmalert reload key"
+  ansible.builtin.slurp:
+    src: "{{ victorialogs_docker_vmalert_reload_auth_key_path }}"
+  register: victorialogs_docker_vmalert_reload_key_file
+  no_log: true
+
+- name: "reload vmalert"
+  ansible.builtin.uri:
+    url: "{{ victorialogs_docker_vmalert_reload_url }}"
+    method: POST
+    use_proxy: false
+    timeout: 5
+    body_format: form-urlencoded
+    body:
+      authKey: "{{ victorialogs_docker_vmalert_reload_key_file.content | b64decode }}"
+    status_code: 200
+  register: victorialogs_docker_vmalert_reload_result
+  until: victorialogs_docker_vmalert_reload_result.status | default(0) == 200
+  retries: 10
+  delay: 2
+  no_log: true

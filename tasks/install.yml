@@ -1,6 +1,12 @@
 # code: language=ansible
 # vim: set filetype=yaml.ansible :
 ---
+- name: "install Docker API Python dependency"
+  ansible.builtin.package:
+    name: python3-requests
+    state: present
+  when: victorialogs_docker_vmalert_enabled
+
 - name: "create root dir"
   ansible.builtin.file:
     path: "{{ victorialogs_docker_root_folder }}"
@@ -9,6 +15,27 @@
     group: "{{ victorialogs_docker_root_folder_group }}"
     state: directory
 
+- name: "create vmalert secrets directory"
+  ansible.builtin.file:
+    path: "{{ victorialogs_docker_vmalert_reload_auth_key_path | dirname }}"
+    state: directory
+    owner: "{{ victorialogs_docker_root_folder_owner }}"
+    group: "{{ victorialogs_docker_root_folder_group }}"
+    mode: '0700'
+  when: victorialogs_docker_vmalert_enabled
+
+- name: "create vmalert reload key"
+  ansible.builtin.copy:
+    content: "{{ victorialogs_docker_vmalert_reload_auth_key or lookup('ansible.builtin.password', '/dev/null', length=64, chars=['ascii_letters', 'digits']) }}"
+    dest: "{{ victorialogs_docker_vmalert_reload_auth_key_path }}"
+    owner: "{{ victorialogs_docker_root_folder_owner }}"
+    group: "{{ victorialogs_docker_root_folder_group }}"
+    mode: '0600'
+    force: "{{ victorialogs_docker_vmalert_reload_auth_key | length > 0 }}"
+  when: victorialogs_docker_vmalert_enabled
+  no_log: true
+  notify: "docker compose reload vmalert"
+
 - name: "render compose.yml"
   ansible.builtin.copy:
     content: "{{ victorialogs_docker_compose_template }}"
@@ -16,9 +43,6 @@
     mode: '0644'
     owner: "{{ victorialogs_docker_root_folder_owner }}"
     group: "{{ victorialogs_docker_root_folder_group }}"
-  notify:
-    - "docker compose up"
-    - "docker compose restart victorialogs"
 
 - name: "render vmalert rules"
   when:
@@ -49,6 +73,7 @@
           loop: "{{ victorialogs_docker_vmalert_configs_for_deletion.files }}"
           loop_control:
             loop_var: vmalert_rules_name
+          notify: "docker compose reload vmalert"
 
     - name: "render vmalert rules"
       ansible.builtin.copy:
@@ -62,4 +87,13 @@
       with_items: "{{ victorialogs_docker_compose_vmalert_rules.keys() }}"
       loop_control:
         loop_var: vmalert_rules_name
-      notify: "docker compose restart vmalert"
+      notify: "docker compose reload vmalert"
+
+    - name: "validate vmalert rules with the target image"
+      ansible.builtin.import_tasks:
+        file: validate_vmalert.yml
+
+- name: "apply docker compose services"
+  community.docker.docker_compose_v2:
+    state: present
+    project_src: "{{ victorialogs_docker_root_folder }}"

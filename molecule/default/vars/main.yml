@@ -1,0 +1,14 @@
+# code: language=ansible
+# vim: set filetype=yaml.ansible :
+---
+# Exercise a non-default secrets directory in converge and verify.
+victorialogs_docker_secrets_path: /opt/victorialogs-test-secrets
+victorialogs_docker_compose_vmalert_notify_url: http://127.0.0.1:9093
+victorialogs_docker_compose_vmalert_rules:
+  smoke: |
+    groups:
+      - name: smoke
+        type: vlogs
+        rules:
+          - alert: SmokeTest
+            expr: '* | stats count() as cnt | filter cnt:>999999'

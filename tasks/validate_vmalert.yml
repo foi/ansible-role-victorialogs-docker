@@ -1,0 +1,23 @@
+# code: language=ansible
+# vim: set filetype=yaml.ansible :
+---
+- name: "find vmalert rules for validation"
+  ansible.builtin.find:
+    paths: "{{ victorialogs_docker_compose_vmalert_rules_path }}"
+    patterns: '*.yml'
+  register: victorialogs_docker_vmalert_rules_for_validation
+
+# vmalert -dryRun rejects an empty rule set; the default role has no rules.
+# Compose run uses the target image, volumes and environment without requiring
+# an existing running container or starting the dependent services.
+- name: "validate vmalert configs"
+  ansible.builtin.command:
+    argv: >-
+      {{ ['docker', 'compose', 'run', '--rm', '--no-deps',
+          '--entrypoint', '/vmalert-prod', victorialogs_docker_vmalert_container_name]
+         + victorialogs_docker_compose_vmalert_commands + ['--dryRun'] }}
+    chdir: "{{ victorialogs_docker_root_folder }}"
+  register: victorialogs_docker_vmalert_validate_result
+  changed_when: false
+  when: victorialogs_docker_vmalert_rules_for_validation.matched > 0
+  no_log: true
