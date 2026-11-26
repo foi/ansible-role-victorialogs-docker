@@ -276,19 +276,6 @@ Run the full Molecule lifecycle from the role directory:
 molecule test
 ```
 
-The scenario uses `MOLECULE_PROJECT_DIRECTORY`, so it also runs outside GitHub
-Actions. Converge and verify share test variables under `molecule/default/vars/`,
-including a custom secrets directory.
-
-For a Docker context, also set `DOCKER_HOST`: the Molecule Docker driver's Python
-SDK does not resolve `DOCKER_CONTEXT` itself. For example:
-
-```sh
-export DOCKER_CONTEXT=archlinux-vm
-export DOCKER_HOST="$(docker context inspect "$DOCKER_CONTEXT" --format '{{.Endpoints.docker.Host}}')"
-molecule test
-```
-
 License
 -------
 
